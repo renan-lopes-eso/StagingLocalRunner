@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  staging-{BRANCH_NAME}:
+    image: staging-app:{BRANCH_NAME}-{COMMIT_SHA_SHORT}
+    container_name: staging-{BRANCH_SAFE_NAME}
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Staging
+      - BRANCH_NAME={BRANCH_NAME}
+      - COMMIT_SHA={COMMIT_SHA}
+      - DEPLOYED_AT={DEPLOYED_AT}
+      - APP_VERSION={APP_VERSION}
+      - DATABASE_CONNECTION_STRING={DATABASE_CONNECTION_STRING}
+    ports:
+      - "{HOST_PORT}:8080"
+    networks:
+      - staging-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.staging-{BRANCH_SAFE_NAME}.rule=Host(`staging.local`) && PathPrefix(`/{BRANCH_SAFE_NAME}`)"
+      - "traefik.http.routers.staging-{BRANCH_SAFE_NAME}.entrypoints=web"
+      - "traefik.http.services.staging-{BRANCH_SAFE_NAME}.loadbalancer.server.port=8080"
+      - "traefik.http.middlewares.staging-{BRANCH_SAFE_NAME}-strip.stripprefix.prefixes=/{BRANCH_SAFE_NAME}"
+      - "traefik.http.routers.staging-{BRANCH_SAFE_NAME}.middlewares=staging-{BRANCH_SAFE_NAME}-strip"
+      - "com.staging.branch={BRANCH_NAME}"
+      - "com.staging.commit={COMMIT_SHA}"
+      - "com.staging.deployed={DEPLOYED_AT}"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  staging-network:
+    external: true

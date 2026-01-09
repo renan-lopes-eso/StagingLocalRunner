@@ -1,0 +1,67 @@
+name: Staging Cleanup
+
+on:
+  schedule:
+    # Run daily at 2 AM
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      max_age_days:
+        description: 'Maximum age in days for environments'
+        required: false
+        default: '7'
+      dry_run:
+        description: 'Dry run (do not actually delete)'
+        required: false
+        default: 'false'
+
+jobs:
+  cleanup:
+    runs-on: self-hosted
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get active branches
+        shell: pwsh
+        id: active_branches
+        run: |
+          git fetch --all
+          $branches = git branch -r | ForEach-Object { $_.Trim() -replace 'origin/', '' } | Where-Object { $_ -ne 'HEAD' -and $_ -notlike '*->*' }
+          $branchesJson = $branches | ConvertTo-Json -Compress
+          echo "branches=$branchesJson" >> $env:GITHUB_OUTPUT
+
+      - name: Cleanup old environments
+        shell: pwsh
+        run: |
+          $maxAgeDays = [int]"${{ github.event.inputs.max_age_days || '7' }}"
+          $dryRun = "${{ github.event.inputs.dry_run }}" -eq "true"
+
+          $scriptPath = Join-Path $env:GITHUB_WORKSPACE "scripts\cleanup.ps1"
+
+          & $scriptPath `
+            -MaxAgeDays $maxAgeDays `
+            -DryRun:$dryRun `
+            -ActiveBranches '${{ steps.active_branches.outputs.branches }}'
+
+      - name: Cleanup summary
+        shell: pwsh
+        run: |
+          echo "## Cleanup Summary" >> $env:GITHUB_STEP_SUMMARY
+          echo "" >> $env:GITHUB_STEP_SUMMARY
+          echo "**Max Age:** ${{ github.event.inputs.max_age_days || '7' }} days" >> $env:GITHUB_STEP_SUMMARY
+          echo "**Dry Run:** ${{ github.event.inputs.dry_run || 'false' }}" >> $env:GITHUB_STEP_SUMMARY
+
+          $envConfigPath = Join-Path $env:GITHUB_WORKSPACE "config\environments.json"
+
+          if (Test-Path $envConfigPath) {
+            $envConfig = Get-Content $envConfigPath | ConvertFrom-Json
+            $activeCount = ($envConfig.PSObject.Properties | Measure-Object).Count
+
+            echo "**Active Environments:** $activeCount" >> $env:GITHUB_STEP_SUMMARY
+          } else {
+            echo "**Active Environments:** 0" >> $env:GITHUB_STEP_SUMMARY
+          }

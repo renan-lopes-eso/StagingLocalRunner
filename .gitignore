@@ -1,0 +1,47 @@
+# Build outputs
+bin/
+obj/
+publish/
+out/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+docker-compose.*.yml
+!docker-compose.template.yml
+
+# Logs
+logs/
+*.log
+
+# Configuration
+config/secrets.json
+config/environments.json
+config/ports.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runner
+github-runner/
+_work/
+
+# Temporary
+tmp/
+temp/
+*.tmp
+
+# EF Core Migrations (optional - uncomment if you don't want to commit migrations)
+# **/Migrations/

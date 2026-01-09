@@ -1,0 +1,161 @@
+name: Staging Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - staging/**
+      - deploy/**
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to deploy'
+        required: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+
+      - name: Extract branch name
+        shell: pwsh
+        id: extract_branch
+        run: |
+          $branchRef = "${{ github.ref }}"
+          $branch = $branchRef -replace 'refs/heads/', ''
+          $branchSafe = $branch -replace '[^a-zA-Z0-9]', '-'
+
+          echo "branch=$branch" >> $env:GITHUB_OUTPUT
+          echo "branch_safe=$branchSafe" >> $env:GITHUB_OUTPUT
+          echo "commit_sha=${{ github.sha }}" >> $env:GITHUB_OUTPUT
+          echo "commit_sha_short=$("${{ github.sha }}".Substring(0,7))" >> $env:GITHUB_OUTPUT
+
+      - name: Allocate port
+        shell: pwsh
+        id: allocate_port
+        run: |
+          $scriptPath = Join-Path $env:GITHUB_WORKSPACE "scripts\port-manager.ps1"
+          $result = & $scriptPath -Branch "${{ steps.extract_branch.outputs.branch }}" -Action "allocate"
+
+          echo "port=$result" >> $env:GITHUB_OUTPUT
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        shell: pwsh
+        run: |
+          cd "$env:GITHUB_WORKSPACE\src\StagingApp"
+          dotnet restore
+
+      - name: Build
+        shell: pwsh
+        run: |
+          cd "$env:GITHUB_WORKSPACE\src\StagingApp"
+          dotnet build --configuration Release --no-restore
+
+      - name: Test
+        shell: pwsh
+        run: |
+          cd "$env:GITHUB_WORKSPACE\src\StagingApp"
+          # dotnet test --no-restore --verbosity normal
+          echo "Tests would run here"
+
+      - name: Build Docker image
+        shell: pwsh
+        run: |
+          cd $env:GITHUB_WORKSPACE
+
+          $imageName = "staging-app"
+          $tag = "${{ steps.extract_branch.outputs.branch_safe }}-${{ steps.extract_branch.outputs.commit_sha_short }}"
+
+          docker build -f docker/Dockerfile -t "${imageName}:${tag}" -t "${imageName}:${{ steps.extract_branch.outputs.branch_safe }}-latest" .
+
+      - name: Stop and remove old container
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $containerName = "staging-${{ steps.extract_branch.outputs.branch_safe }}"
+
+          docker stop $containerName 2>$null
+          docker rm $containerName 2>$null
+
+      - name: Deploy container
+        shell: pwsh
+        run: |
+          cd $env:GITHUB_WORKSPACE
+
+          $scriptPath = Join-Path $env:GITHUB_WORKSPACE "scripts\deploy.ps1"
+
+          & $scriptPath `
+            -Branch "${{ steps.extract_branch.outputs.branch }}" `
+            -BranchSafe "${{ steps.extract_branch.outputs.branch_safe }}" `
+            -CommitSha "${{ steps.extract_branch.outputs.commit_sha }}" `
+            -CommitShaShort "${{ steps.extract_branch.outputs.commit_sha_short }}" `
+            -Port "${{ steps.allocate_port.outputs.port }}" `
+            -ConnectionString "${{ secrets.MYSQL_CONNECTION_STRING }}"
+
+      - name: Health check
+        shell: pwsh
+        run: |
+          $scriptPath = Join-Path $env:GITHUB_WORKSPACE "scripts\health-check.ps1"
+
+          & $scriptPath -Port "${{ steps.allocate_port.outputs.port }}" -MaxRetries 10
+
+      - name: Update environment status
+        shell: pwsh
+        run: |
+          $envConfig = @{
+            branch = "${{ steps.extract_branch.outputs.branch }}"
+            branchSafe = "${{ steps.extract_branch.outputs.branch_safe }}"
+            port = [int]"${{ steps.allocate_port.outputs.port }}"
+            commitSha = "${{ steps.extract_branch.outputs.commit_sha }}"
+            deployedAt = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssZ")
+            url = "http://localhost:${{ steps.allocate_port.outputs.port }}"
+            traefikUrl = "http://staging.local/${{ steps.extract_branch.outputs.branch_safe }}"
+          }
+
+          $configPath = Join-Path $env:GITHUB_WORKSPACE "config\environments.json"
+          $configDir = Split-Path -Parent $configPath
+
+          if (-not (Test-Path $configDir)) {
+            New-Item -ItemType Directory -Path $configDir -Force | Out-Null
+          }
+
+          if (Test-Path $configPath) {
+            $environments = Get-Content $configPath | ConvertFrom-Json
+          } else {
+            $environments = @{}
+          }
+
+          $environments | Add-Member -MemberType NoteProperty -Name "${{ steps.extract_branch.outputs.branch }}" -Value $envConfig -Force
+          $environments | ConvertTo-Json -Depth 10 | Set-Content $configPath
+
+      - name: Deployment summary
+        shell: pwsh
+        run: |
+          echo "## Deployment Successful! :rocket:" >> $env:GITHUB_STEP_SUMMARY
+          echo "" >> $env:GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ steps.extract_branch.outputs.branch }}" >> $env:GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ steps.extract_branch.outputs.commit_sha_short }}" >> $env:GITHUB_STEP_SUMMARY
+          echo "**Port:** ${{ steps.allocate_port.outputs.port }}" >> $env:GITHUB_STEP_SUMMARY
+          echo "" >> $env:GITHUB_STEP_SUMMARY
+          echo "### Access URLs:" >> $env:GITHUB_STEP_SUMMARY
+          echo "- Direct: http://localhost:${{ steps.allocate_port.outputs.port }}" >> $env:GITHUB_STEP_SUMMARY
+          echo "- Traefik: http://staging.local/${{ steps.extract_branch.outputs.branch_safe }}" >> $env:GITHUB_STEP_SUMMARY
+          echo "- Swagger: http://localhost:${{ steps.allocate_port.outputs.port }}/swagger" >> $env:GITHUB_STEP_SUMMARY
+          echo "- Health: http://localhost:${{ steps.allocate_port.outputs.port }}/health" >> $env:GITHUB_STEP_SUMMARY

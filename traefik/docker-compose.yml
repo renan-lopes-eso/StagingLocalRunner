@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik-staging
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - //./pipe/docker_engine://./pipe/docker_engine
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./dynamic:/etc/traefik/dynamic:ro
+      - traefik-logs:/var/log/traefik
+    networks:
+      - staging-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.staging.local`)"
+      - "traefik.http.routers.dashboard.service=api@internal"
+
+networks:
+  staging-network:
+    name: staging-network
+    driver: bridge
+
+volumes:
+  traefik-logs:
