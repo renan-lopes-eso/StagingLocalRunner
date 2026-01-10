@@ -1,0 +1,51 @@
+# 1 Formatar a maquina e instalar windows 11 pro e anti virus. Em opcoes de energia, desabilitar o sleep e a hibernacao
+
+# 2 Rodar scripsts na maquina
+  1. 01-setup-rdp.ps1
+  2. 02-install-dependencies.ps1
+
+# 3 fixar o ip da maquina pelo unifi controller:
+  1. Acesse o UniFi Controller
+    - Web: https://unifi.ui.com ou IP do seu controller local
+    - App: UniFi Network (mobile)
+  2. Encontre a máquina de staging
+    - Vá em Clients (lado esquerdo)
+    - Procure pela máquina de staging (pelo nome do computador ou MAC)
+  3. Criar a reserva
+    - Clique na máquina
+    - Clique em Settings (ícone de engrenagem) ou Configuration
+    - Role até Network → Fixed IP Address ou Use Fixed IP Address
+    - Ative e escolha um IP (ex: 192.168.1.100)
+    - Clique em Apply ou Save
+
+# 4 Configurar os segredos no github:
+  1. Vá em: https://github.com/SEU-USUARIO/StagingLocalRunner/settings/secrets/actions
+  2. Clique em "New repository secret"
+  3. Preencha:
+    - Name: ESO_CORE_CONNECTION
+    - Value: Server=seu-mysql.com;Port=3306;Database=staging;Uid=user;Pwd=senha;
+ 
+# 5 Criar GitHub Personal Access Token
+  1. Acesse: https://github.com/settings/tokens
+  2. Clique em "Generate new token (classic)"
+  3. Nome: Local Staging Runner Token
+  4. Scopes: repo (todas), workflow, admin:org → read:org
+  5. Copiar o token (começa com ghp_)
+
+# 6 Secrets.json
+  1. Crie o arquivo: c:/configs/secrets.json
+  2. Preencha com o token do github e tambel com o final da url do repositorio:
+    { "github": { "token":  "ghp_aa", "repo": "test" } }
+
+  4. Verificar runner:
+    - https://github.com/SEU-USUARIO/StagingLocalRunner/settings/actions/runners
+    - Deve aparecer "staging-local-runner" com status "Idle" (verde)
+
+  5. Testar deploy:
+    - git checkout -b staging/test
+    - git commit --allow-empty -m "Test"
+    - git push origin staging/test
+    - Acompanhar em: https://github.com/SEU-USUARIO/StagingLocalRunner/actions
+    - Container deve subir em: http://localhost:5001
+
+  VER MAIS DETALHES: _validado/PROXIMO-PASSO.md
