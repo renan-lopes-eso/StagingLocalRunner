@@ -1,10 +1,6 @@
 # 1 Formatar a maquina e instalar windows 11 pro e anti virus. Em opcoes de energia, desabilitar o sleep e a hibernacao
 
-# 2 Rodar scripsts na maquina
-  1. 01-setup-rdp.ps1
-  2. 02-install-dependencies.ps1
-
-# 3 fixar o ip da maquina pelo unifi controller:
+# 2 fixar o ip da maquina pelo unifi controller:
   1. Acesse o UniFi Controller
     - Web: https://unifi.ui.com ou IP do seu controller local
     - App: UniFi Network (mobile)
@@ -18,14 +14,14 @@
     - Ative e escolha um IP (ex: 192.168.1.100)
     - Clique em Apply ou Save
 
-# 4 Configurar os segredos no github:
-  1. Vá em: https://github.com/SEU-USUARIO/StagingLocalRunner/settings/secrets/actions
+# 3 Configurar os segredos no github:
+  1. Vá em: https://github.com/renan-lopes-eso/ESO.TestRunner/settings/secrets/actions
   2. Clique em "New repository secret"
   3. Preencha:
     - Name: ESO_CORE_CONNECTION
     - Value: Server=seu-mysql.com;Port=3306;Database=staging;Uid=user;Pwd=senha;
  
-# 5 Criar GitHub Personal Access Token
+# 4 Criar GitHub Personal Access Token
   1. Acesse: https://github.com/settings/tokens
   2. Clique em "Generate new token"
   3. Configure:
@@ -43,22 +39,35 @@
     $headers = @{ "Authorization" = "Bearer $token"; "Accept" = "application/vnd.github.v3+json" }
     Invoke-RestMethod -Uri "https://api.github.com/user" -Headers $headers
 
-# 6 Secrets.json
+# 5 Secrets.json
   1. Crie o arquivo: c:/configs/secrets.json
   2. Preencha com o token do github e tambel com o final da url do repositorio:
     { "github": { "token":  "ghp_aa", "repo": "test" } }
 
-# 7 Rodas os scripts de 1 a 3
+# 6 Rodas os scripts de 1 a 3
 
-# 8 Verificar runner:
-    - https://github.com/SEU-USUARIO/StagingLocalRunner/settings/actions/runners
+# 7 Verificar runner:
+    - https://github.com/renan-lopes-eso/ESO.TestRunner/settings/actions/runners
     - Deve aparecer "staging-local-runner" com status "Idle" (verde)
 
-  9 Testar deploy:
+# 8 Fluxo de commits:
+    - Dev desenvolve e da os commits na branch dev/feature-1
+      - git checkout dev/feature-1
+      - git add .
+      - git commit -m "feature"
+      - git push origin master
+    - Quando aprovado, o dev mergeia o feature em uma branch do staging:
+      - git checkout -b staging/feature-1
+      - git merge master
+      - git push origin staging/feature-1
+    
     - git checkout -b staging/test
     - git commit --allow-empty -m "Test"
     - git push origin staging/test
-    - Acompanhar em: https://github.com/SEU-USUARIO/StagingLocalRunner/actions
+    - Acompanhar em: https://github.com/renan-lopes-eso/ESO.TestRunner/actions
     - Container deve subir em: http://localhost:5001
 
-  VER MAIS DETALHES: _validado/PROXIMO-PASSO.md
+troubleshoot:
+para mostrar erros internos da aplicacao:
+docker logs staging-staging-test
+
