@@ -30,7 +30,7 @@ jobs:
           ref: ${{ github.event.inputs.branch || github.ref }}
 
       - name: Extract branch name
-        shell: pwsh
+        shell: powershell
         id: extract_branch
         run: |
           $branchRef = "${{ github.ref }}"
@@ -43,7 +43,7 @@ jobs:
           echo "commit_sha_short=$("${{ github.sha }}".Substring(0,7))" >> $env:GITHUB_OUTPUT
 
       - name: Allocate port
-        shell: pwsh
+        shell: powershell
         id: allocate_port
         run: |
           $scriptPath = Join-Path $env:GITHUB_WORKSPACE "scripts\port-manager.ps1"
@@ -57,26 +57,26 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Restore dependencies
-        shell: pwsh
+        shell: powershell
         run: |
           cd "$env:GITHUB_WORKSPACE\src\StagingApp"
           dotnet restore
 
       - name: Build
-        shell: pwsh
+        shell: powershell
         run: |
           cd "$env:GITHUB_WORKSPACE\src\StagingApp"
           dotnet build --configuration Release --no-restore
 
       - name: Test
-        shell: pwsh
+        shell: powershell
         run: |
           cd "$env:GITHUB_WORKSPACE\src\StagingApp"
           # dotnet test --no-restore --verbosity normal
           echo "Tests would run here"
 
       - name: Build Docker image
-        shell: pwsh
+        shell: powershell
         run: |
           cd $env:GITHUB_WORKSPACE
 
@@ -86,7 +86,7 @@ jobs:
           docker build -f docker/Dockerfile -t "${imageName}:${tag}" -t "${imageName}:${{ steps.extract_branch.outputs.branch_safe }}-latest" .
 
       - name: Stop and remove old container
-        shell: pwsh
+        shell: powershell
         continue-on-error: true
         run: |
           $containerName = "staging-${{ steps.extract_branch.outputs.branch_safe }}"
@@ -95,7 +95,7 @@ jobs:
           docker rm $containerName 2>$null
 
       - name: Deploy container
-        shell: pwsh
+        shell: powershell
         run: |
           cd $env:GITHUB_WORKSPACE
 
@@ -110,14 +110,14 @@ jobs:
             -ConnectionString "${{ secrets.ESO_CORE_CONNECTION }}"
 
       - name: Health check
-        shell: pwsh
+        shell: powershell
         run: |
           $scriptPath = Join-Path $env:GITHUB_WORKSPACE "scripts\health-check.ps1"
 
           & $scriptPath -Port "${{ steps.allocate_port.outputs.port }}" -MaxRetries 10
 
       - name: Update environment status
-        shell: pwsh
+        shell: powershell
         run: |
           $envConfig = @{
             branch = "${{ steps.extract_branch.outputs.branch }}"
@@ -146,7 +146,7 @@ jobs:
           $environments | ConvertTo-Json -Depth 10 | Set-Content $configPath
 
       - name: Deployment summary
-        shell: pwsh
+        shell: powershell
         run: |
           echo "## Deployment Successful! :rocket:" >> $env:GITHUB_STEP_SUMMARY
           echo "" >> $env:GITHUB_STEP_SUMMARY

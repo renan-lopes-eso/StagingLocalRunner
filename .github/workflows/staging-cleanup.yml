@@ -26,7 +26,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Get active branches
-        shell: pwsh
+        shell: powershell
         id: active_branches
         run: |
           git fetch --all
@@ -35,7 +35,7 @@ jobs:
           echo "branches=$branchesJson" >> $env:GITHUB_OUTPUT
 
       - name: Cleanup old environments
-        shell: pwsh
+        shell: powershell
         run: |
           $maxAgeDays = [int]"${{ github.event.inputs.max_age_days || '7' }}"
           $dryRun = "${{ github.event.inputs.dry_run }}" -eq "true"
@@ -48,7 +48,7 @@ jobs:
             -ActiveBranches '${{ steps.active_branches.outputs.branches }}'
 
       - name: Cleanup summary
-        shell: pwsh
+        shell: powershell
         run: |
           echo "## Cleanup Summary" >> $env:GITHUB_STEP_SUMMARY
           echo "" >> $env:GITHUB_STEP_SUMMARY
