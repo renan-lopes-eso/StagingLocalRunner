@@ -107,7 +107,7 @@ jobs:
             -CommitSha "${{ steps.extract_branch.outputs.commit_sha }}" `
             -CommitShaShort "${{ steps.extract_branch.outputs.commit_sha_short }}" `
             -Port "${{ steps.allocate_port.outputs.port }}" `
-            -ConnectionString "${{ secrets.MYSQL_CONNECTION_STRING }}"
+            -ConnectionString "${{ secrets.ESO_CORE_CONNECTION }}"
 
       - name: Health check
         shell: pwsh
