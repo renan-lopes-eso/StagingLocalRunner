@@ -247,36 +247,7 @@ if (-not (Test-Path $RunnerPath)) {
 
 Set-Location $RunnerPath
 
-# Verificar se já está configurado
-if (Test-Path ".\config.sh") {
-  Write-Host "  ! Runner ja esta configurado neste diretorio" -ForegroundColor Yellow
-
-  $reconfigure = Read-Host "  Deseja reconfigurar? Isso vai remover a configuracao atual (s/N)"
-  if ($reconfigure -eq "s" -or $reconfigure -eq "S") {
-	  Write-Host "  Removendo configuracao anterior..." -ForegroundColor Yellow
-
-	  # Parar servico se existir
-	  try {
-		  & .\svc.sh stop
-		  & .\svc.sh uninstall
-	  }
-	  catch {
-		  # Ignorar se não houver serviço
-	  }
-
-	  # Remover configuração
-	  & .\config.cmd remove --token $GitHubToken
-  }
-  else {
-	  Write-Host "  Pulando configuracao do runner..." -ForegroundColor Yellow
-	  Write-Host ""
-	  Write-Host "========================================" -ForegroundColor Cyan
-	  Write-Host "  Setup concluido!" -ForegroundColor Green
-	  Write-Host "========================================" -ForegroundColor Cyan
-	  Read-Host
-	  exit 0
-  }
-}
+# Verificação removida - o script continua e verifica .runner mais adiante
 
 # Download do runner
 $runnerVersion = "2.331.0"
@@ -314,7 +285,7 @@ Write-Host "  Obtendo token de registro do GitHub..." -ForegroundColor Yellow
 
 try {
   $headers = @{
-	  "Authorization" = "token $GitHubToken"
+	  "Authorization" = "Bearer $GitHubToken"
 	  "Accept" = "application/vnd.github.v3+json"
   }
   $tokenUrl = "https://api.github.com/repos/$GitHubRepo/actions/runners/registration-token"
@@ -367,75 +338,96 @@ else {
   }
 }
 
-  # Obter registration token do GitHub
-  Write-Host "  Obtendo token de registro do GitHub..." -ForegroundColor Yellow
+# Verificar se runner já está rodando (processo ou serviço)
+$runnerProcess = Get-Process -Name "Runner.Listener" -ErrorAction SilentlyContinue
+$existingService = Get-Service | Where-Object {$_.Name -like "*actions.runner*"}
 
-  try {
-      $headers = @{
-          "Authorization" = "token $GitHubToken"
-          "Accept" = "application/vnd.github.v3+json"
+if ($runnerProcess) {
+  # Runner já está rodando como processo
+  Write-Host "  ✓ Runner ja esta rodando (processo ativo)" -ForegroundColor Green
+  Write-Host "    PID: $($runnerProcess.Id)" -ForegroundColor Gray
+}
+elseif ($existingService -and $existingService.Status -eq "Running") {
+  # Runner já está rodando como serviço
+  Write-Host "  ✓ Runner ja esta rodando como servico" -ForegroundColor Green
+  Write-Host "    Servico: $($existingService.Name)" -ForegroundColor Gray
+}
+else {
+  # Runner não está rodando - tentar iniciar ou instalar
+
+  if ($existingService) {
+    # Serviço existe mas não está rodando - tentar iniciar
+    Write-Host "  ! Servico existe mas nao esta rodando" -ForegroundColor Yellow
+    Write-Host "  Iniciando servico..." -ForegroundColor Yellow
+
+    $serviceStarted = $false
+    try {
+      Start-Service $existingService.Name -ErrorAction Stop
+      Start-Sleep -Seconds 3
+      Write-Host "  ✓ Servico iniciado" -ForegroundColor Green
+      $serviceStarted = $true
+    }
+    catch {
+      Write-Host "  ✗ Erro ao iniciar servico - removendo servico quebrado..." -ForegroundColor Yellow
+      # Remover serviço quebrado
+      try {
+        sc.exe delete $existingService.Name 2>$null | Out-Null
+        Write-Host "  ✓ Servico removido" -ForegroundColor Green
       }
-      $tokenUrl = "https://api.github.com/repos/$GitHubRepo/actions/runners/registration-token"
-      $response = Invoke-RestMethod -Uri $tokenUrl -Method Post -Headers $headers
-      $registrationToken = $response.token
-      Write-Host "  ✓ Token de registro obtido" -ForegroundColor Green
-  }
-  catch {
-      Write-Host "  ✗ Erro ao obter token de registro: $_" -ForegroundColor Red
-      Write-Host "  ! Verifique se o GitHub Token e Repositorio estao corretos no secrets.json" -ForegroundColor Yellow
-      Write-Host "  ! Token deve ter permissoes: repo, workflow, admin:org" -ForegroundColor Yellow
-      exit 1
-  }
-
-  # Configurar runner
-  Write-Host "  Configurando runner..." -ForegroundColor Yellow
-
-  try {
-      $configArgs = @(
-          "--url", "https://github.com/$GitHubRepo",
-          "--token", $registrationToken,
-          "--name", $RunnerName,
-          "--work", "_work",
-          "--labels", "self-hosted,Windows,staging",
-          "--unattended"
-      )
-
-      & .\config.cmd @configArgs
-
-      if ($LASTEXITCODE -ne 0) {
-          throw "Erro na configuracao do runner"
+      catch {
+        # Ignorar
       }
+    }
 
-      Write-Host "  ✓ Runner configurado com sucesso" -ForegroundColor Green
+    # Se serviço não iniciou, usar tarefa agendada
+    if (-not $serviceStarted) {
+      $existingService = $null  # Forçar criação de tarefa agendada no próximo bloco
+    }
   }
-  catch {
-      Write-Host "  ✗ Erro ao configurar runner: $_" -ForegroundColor Red
-      exit 1
+
+  if (-not $existingService) {
+    # Serviço não existe - criar tarefa agendada
+    Write-Host "  Configurando inicializacao automatica..." -ForegroundColor Yellow
+
+    try {
+      $taskName = "GitHubActionsRunner-$RunnerName"
+      $runCmd = Join-Path $RunnerPath "run.cmd"
+
+      # Remover tarefa existente se houver
+      Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+
+      # Criar tarefa agendada para iniciar no boot
+      $action = New-ScheduledTaskAction -Execute "cmd.exe" -Argument "/c `"$runCmd`"" -WorkingDirectory $RunnerPath
+      $trigger = New-ScheduledTaskTrigger -AtStartup
+      $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+      $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit (New-TimeSpan -Days 365)
+
+      Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
+
+      Write-Host "  ✓ Tarefa agendada criada: $taskName" -ForegroundColor Green
+
+      # Iniciar a tarefa agora
+      Write-Host "  Iniciando runner..." -ForegroundColor Yellow
+      Start-ScheduledTask -TaskName $taskName
+      Start-Sleep -Seconds 5
+
+      # Verificar se iniciou
+      $runnerProcess = Get-Process -Name "Runner.Listener" -ErrorAction SilentlyContinue
+      if ($runnerProcess) {
+        Write-Host "  ✓ Runner iniciado com sucesso (PID: $($runnerProcess.Id))" -ForegroundColor Green
+      }
+      else {
+        Write-Host "  ! Runner pode demorar alguns segundos para conectar ao GitHub" -ForegroundColor Yellow
+      }
+    }
+    catch {
+      Write-Host "  ✗ Erro ao configurar tarefa: $_" -ForegroundColor Red
+      Write-Host ""
+      Write-Host "  Voce pode iniciar o runner manualmente com:" -ForegroundColor Yellow
+      Write-Host "    cd $RunnerPath" -ForegroundColor Gray
+      Write-Host "    .\run.cmd" -ForegroundColor Gray
+    }
   }
-
-# Instalar como serviço
-Write-Host "  Instalando como servico Windows..." -ForegroundColor Yellow
-
-try {
-  & .\svc.sh install
-  Write-Host "  ✓ Servico instalado" -ForegroundColor Green
-}
-catch {
-  Write-Host "  ✗ Erro ao instalar servico: $_" -ForegroundColor Red
-  exit 1
-}
-
-# Iniciar serviço
-Write-Host "  Iniciando servico..." -ForegroundColor Yellow
-
-try {
-  & .\svc.sh start
-  Start-Sleep -Seconds 3
-  Write-Host "  ✓ Servico iniciado" -ForegroundColor Green
-}
-catch {
-  Write-Host "  ✗ Erro ao iniciar servico: $_" -ForegroundColor Red
-  exit 1
 }
 
 Write-Host ""
@@ -445,13 +437,23 @@ Write-Host ""
 # ====================================
 Write-Host "6. Validando instalacao..." -ForegroundColor Yellow
 
-# Verificar serviço
+# Verificar se runner está rodando (processo ou serviço)
+$runnerProcess = Get-Process -Name "Runner.Listener" -ErrorAction SilentlyContinue
 $service = Get-Service | Where-Object {$_.Name -like "*actions.runner*"}
-if ($service -and $service.Status -eq "Running") {
-  Write-Host "  ✓ Servico do runner esta rodando" -ForegroundColor Green
+$scheduledTask = Get-ScheduledTask -TaskName "GitHubActionsRunner-$RunnerName" -ErrorAction SilentlyContinue
+
+if ($runnerProcess) {
+  Write-Host "  ✓ Runner esta rodando (PID: $($runnerProcess.Id))" -ForegroundColor Green
+}
+elseif ($service -and $service.Status -eq "Running") {
+  Write-Host "  ✓ Runner esta rodando como servico" -ForegroundColor Green
 }
 else {
-  Write-Host "  ✗ Servico do runner nao esta rodando!" -ForegroundColor Red
+  Write-Host "  ! Runner nao esta rodando no momento" -ForegroundColor Yellow
+  if ($scheduledTask) {
+    Write-Host "    Tarefa agendada configurada: $($scheduledTask.TaskName)" -ForegroundColor Gray
+    Write-Host "    O runner iniciara automaticamente no proximo boot" -ForegroundColor Gray
+  }
 }
 
 # Verificar network Docker
@@ -492,15 +494,15 @@ Write-Host "   - Acompanhe em: https://github.com/$GitHubRepo/actions" -Foregrou
 Write-Host ""
 Write-Host "Comandos uteis:" -ForegroundColor Yellow
 Write-Host "  Ver status do runner:" -ForegroundColor White
-Write-Host "    cd $RunnerPath" -ForegroundColor Gray
-Write-Host "    .\svc.sh status" -ForegroundColor Gray
+Write-Host "    Get-Process -Name Runner.Listener" -ForegroundColor Gray
 Write-Host ""
 Write-Host "  Ver logs do runner:" -ForegroundColor White
-Write-Host "    cd $RunnerPath" -ForegroundColor Gray
-Write-Host "    Get-Content .\_diag\*.log -Tail 50" -ForegroundColor Gray
+Write-Host "    Get-Content $RunnerPath\_diag\*.log -Tail 50" -ForegroundColor Gray
 Write-Host ""
-Write-Host "  Reiniciar runner:" -ForegroundColor White
-Write-Host "    cd $RunnerPath" -ForegroundColor Gray
-Write-Host "    .\svc.sh stop && .\svc.sh start" -ForegroundColor Gray
+Write-Host "  Iniciar runner manualmente:" -ForegroundColor White
+Write-Host "    cd $RunnerPath; .\run.cmd" -ForegroundColor Gray
+Write-Host ""
+Write-Host "  Parar runner:" -ForegroundColor White
+Write-Host "    Stop-Process -Name Runner.Listener -Force" -ForegroundColor Gray
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan

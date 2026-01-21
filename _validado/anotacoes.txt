@@ -27,21 +27,34 @@
  
 # 5 Criar GitHub Personal Access Token
   1. Acesse: https://github.com/settings/tokens
-  2. Clique em "Generate new token (classic)"
-  3. Nome: Local Staging Runner Token
-  4. Scopes: repo (todas), workflow, admin:org → read:org
-  5. Copiar o token (começa com ghp_)
+  2. Clique em "Generate new token"
+  3. Configure:
+    - Token name: staging-runner-token
+    - Expiration: escolha o período
+    - Repository access: selecione "Only select repositories"
+        - Escolha: renan-lopes-eso/StagingLocalRunner
+  4. Em Permissions → Repository permissions:
+    - Administration: Read and write (necessário para registrar runners)
+    - Contents: Read-only
+    - Metadata: Read-only (já vem marcado)
+  5. Clique em "Generate token" e copie
+  6. Atualize o C:\configs\secrets.json e teste:
+    $token = "github_pat_..."
+    $headers = @{ "Authorization" = "Bearer $token"; "Accept" = "application/vnd.github.v3+json" }
+    Invoke-RestMethod -Uri "https://api.github.com/user" -Headers $headers
 
 # 6 Secrets.json
   1. Crie o arquivo: c:/configs/secrets.json
   2. Preencha com o token do github e tambel com o final da url do repositorio:
     { "github": { "token":  "ghp_aa", "repo": "test" } }
 
-  4. Verificar runner:
+# 7 Rodas os scripts de 1 a 3
+
+# 8 Verificar runner:
     - https://github.com/SEU-USUARIO/StagingLocalRunner/settings/actions/runners
     - Deve aparecer "staging-local-runner" com status "Idle" (verde)
 
-  5. Testar deploy:
+  9 Testar deploy:
     - git checkout -b staging/test
     - git commit --allow-empty -m "Test"
     - git push origin staging/test
