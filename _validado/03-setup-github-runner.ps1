@@ -16,7 +16,7 @@ param(
     [string]$GitHubToken = "",
 
     [Parameter(Mandatory=$false)]
-    [string]$GitHubRepo = "",
+    [string]$GitHubOrg = "",
 
     [Parameter(Mandatory=$false)]
     [string]$RunnerName = "staging-local-runner",
@@ -102,12 +102,19 @@ if ($networkExists) {
 }
 else {
     try {
-        docker network create staging-network | Out-Null
+        # Windows containers usam driver 'nat', Linux usa 'bridge'
+        $dockerOs = docker version --format '{{.Server.Os}}' 2>$null
+        if ($dockerOs -eq "windows") {
+            docker network create --driver nat staging-network | Out-Null
+        }
+        else {
+            docker network create staging-network | Out-Null
+        }
         Write-Host "  ✓ Network 'staging-network' criada com sucesso" -ForegroundColor Green
     }
     catch {
         Write-Host "  ✗ Erro ao criar network: $_" -ForegroundColor Red
-		Read-Host
+        Read-Host
         exit 1
     }
 }
@@ -130,18 +137,22 @@ if (-not (Test-Path $configPath)) {
 # Criar secrets.json se não existir
 if (-not (Test-Path $secretsFile)) {
     $template = @{
-        github = @{ 
-			token = "github_token"
-			repo = "repo_url" 
-		}
+        github = @{
+            token = "github_pat_SEU_TOKEN_AQUI"
+            org = "NOME_DA_ORGANIZACAO"
+        }
     } | ConvertTo-Json -Depth 10
 
     Set-Content -Path $secretsFile -Value $template
-	
+
     Write-Host "  ✓ Arquivo secrets.json criado" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "  ! IMPORTANTE: Edite o arquivo secrets.json com suas credenciais reais!" -ForegroundColor Yellow
+    Write-Host "  ! IMPORTANTE: Edite o arquivo secrets.json com suas credenciais!" -ForegroundColor Yellow
     Write-Host "  ! Caminho: $secretsFile" -ForegroundColor White
+    Write-Host ""
+    Write-Host "  Configuracao:" -ForegroundColor White
+    Write-Host "    token: Fine-grained token com permissao Self-hosted runners na org" -ForegroundColor Gray
+    Write-Host "    org: Nome da organizacao (ex: SistemaESO)" -ForegroundColor Gray
     Write-Host ""
 
     # Perguntar se quer abrir o arquivo agora
@@ -198,38 +209,38 @@ if ([string]::IsNullOrWhiteSpace($GitHubToken)) {
   }
 }
 
-# Verificar se github.repo existe e está preenchido
-if ([string]::IsNullOrWhiteSpace($GitHubRepo)) {
-  if ($secrets.github -and $secrets.github.repo) {
-	  $GitHubRepo = $secrets.github.repo
+# Verificar se github.org existe e está preenchido
+if ([string]::IsNullOrWhiteSpace($GitHubOrg)) {
+    if ($secrets.github -and $secrets.github.org) {
+        $GitHubOrg = $secrets.github.org
 
-	  # Validar se não é o valor de exemplo
-	  if ($GitHubRepo -eq "owner/repository") {
-		  Write-Host "  ✗ GitHub Repositorio nao foi configurado no secrets.json!" -ForegroundColor Red
-		  Write-Host ""
-		  Write-Host "  Edite o arquivo: $secretsFile" -ForegroundColor Yellow
-		  Write-Host "  Configure: github.repo no formato 'owner/repository'" -ForegroundColor Yellow
-		  Write-Host "  Exemplo: 'meuusuario/StagingLocalRunner'" -ForegroundColor Gray
-		  Write-Host ""
-		  Read-Host
-		  exit 1
-	  }
+        # Validar se não é o valor de exemplo
+        if ($GitHubOrg -eq "NOME_DA_ORGANIZACAO") {
+            Write-Host "  ✗ GitHub Organizacao nao foi configurada no secrets.json!" -ForegroundColor Red
+            Write-Host ""
+            Write-Host "  Edite o arquivo: $secretsFile" -ForegroundColor Yellow
+            Write-Host "  Configure: github.org com o nome da sua organizacao" -ForegroundColor Yellow
+            Write-Host "  Exemplo: 'SistemaESO'" -ForegroundColor Gray
+            Write-Host ""
+            Read-Host
+            exit 1
+        }
 
-	  Write-Host "  ✓ GitHub Repositorio carregado: $GitHubRepo" -ForegroundColor Green
-  }
-  else {
-	  Write-Host "  ✗ github.repo nao encontrado no secrets.json!" -ForegroundColor Red
-	  Write-Host ""
-	  Write-Host "  Edite o arquivo: $secretsFile" -ForegroundColor Yellow
-	  Write-Host "  Adicione: github.repo no formato 'owner/repository'" -ForegroundColor Yellow
-	  Read-Host
-	  exit 1
-  }
+        Write-Host "  ✓ GitHub Organizacao carregada: $GitHubOrg" -ForegroundColor Green
+    }
+    else {
+        Write-Host "  ✗ github.org nao encontrado no secrets.json!" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "  Edite o arquivo: $secretsFile" -ForegroundColor Yellow
+        Write-Host "  Adicione: github.org com o nome da sua organizacao" -ForegroundColor Yellow
+        Read-Host
+        exit 1
+    }
 }
 
 Write-Host ""
 Write-Host "  Configuracao carregada:" -ForegroundColor Green
-Write-Host "    Repositorio: $GitHubRepo" -ForegroundColor White
+Write-Host "    Organizacao: $GitHubOrg" -ForegroundColor White
 Write-Host "    Runner Name: $RunnerName" -ForegroundColor White
 Write-Host "    Runner Path: $RunnerPath" -ForegroundColor White
 Write-Host ""
@@ -280,23 +291,23 @@ else {
   Write-Host "  ✓ Runner ja esta baixado" -ForegroundColor Green
 }
 
-# Obter registration token do GitHub
+# Obter registration token do GitHub (a nivel de organizacao)
 Write-Host "  Obtendo token de registro do GitHub..." -ForegroundColor Yellow
 
 try {
   $headers = @{
-	  "Authorization" = "Bearer $GitHubToken"
-	  "Accept" = "application/vnd.github.v3+json"
+      "Authorization" = "Bearer $GitHubToken"
+      "Accept" = "application/vnd.github.v3+json"
   }
-  $tokenUrl = "https://api.github.com/repos/$GitHubRepo/actions/runners/registration-token"
+  $tokenUrl = "https://api.github.com/orgs/$GitHubOrg/actions/runners/registration-token"
   $response = Invoke-RestMethod -Uri $tokenUrl -Method Post -Headers $headers
   $registrationToken = $response.token
-  Write-Host "  ✓ Token de registro obtido" -ForegroundColor Green
+  Write-Host "  ✓ Token de registro obtido (organizacao: $GitHubOrg)" -ForegroundColor Green
 }
 catch {
   Write-Host "  ✗ Erro ao obter token de registro: $_" -ForegroundColor Red
-  Write-Host "  ! Verifique se o GitHub Token e Repositorio estao corretos no secrets.json" -ForegroundColor Yellow
-  Write-Host "  ! Token deve ter permissoes: repo, workflow, admin:org" -ForegroundColor Yellow
+  Write-Host "  ! Verifique se o GitHub Token esta correto no secrets.json" -ForegroundColor Yellow
+  Write-Host "  ! Token deve ter permissao: Organization > Self-hosted runners: Read and Write" -ForegroundColor Yellow
   Read-Host
   exit 1
 }
@@ -311,16 +322,16 @@ if (Test-Path ".\.runner") {
 }
 else {
   try {
-	  $configArgs = @(
-		  "--url", "https://github.com/$GitHubRepo",
-		  "--token", $registrationToken,
-		  "--name", $RunnerName,
-		  "--work", "_work",
-		  "--labels", "self-hosted,Windows,staging",
-		  "--unattended"
-	  )
+      $configArgs = @(
+          "--url", "https://github.com/$GitHubOrg",
+          "--token", $registrationToken,
+          "--name", $RunnerName,
+          "--work", "_work",
+          "--labels", "self-hosted,Windows,staging",
+          "--unattended"
+      )
 
-	  & .\config.cmd @configArgs
+      & .\config.cmd @configArgs
 
 	  if ($LASTEXITCODE -ne 0) {
 		  Write-Host "  ✗ Erro na configuracao do runner" -ForegroundColor Red
@@ -476,21 +487,19 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Proximo passo:" -ForegroundColor Yellow
 Write-Host ""
-Write-Host "1. Configure o GitHub Secret no repositorio:" -ForegroundColor White
-Write-Host "   - Va em: https://github.com/$GitHubRepo/settings/secrets/actions" -ForegroundColor Gray
-Write-Host "   - Clique em 'New repository secret'" -ForegroundColor Gray
-Write-Host "   - Name: MYSQL_CONNECTION_STRING" -ForegroundColor Gray
-Write-Host "   - Value: Sua connection string do MySQL" -ForegroundColor Gray
-Write-Host "     (a mesma que esta em C:\configs\secrets.json)" -ForegroundColor Gray
+Write-Host "1. Configure os GitHub Secrets nos repositorios:" -ForegroundColor White
+Write-Host "   - Va em: https://github.com/organizations/$GitHubOrg/settings/secrets/actions" -ForegroundColor Gray
+Write-Host "   - Ou em cada repo: Settings > Secrets and variables > Actions" -ForegroundColor Gray
+Write-Host "   - Adicione os secrets necessarios (ex: ESO_CORE_CONNECTION)" -ForegroundColor Gray
 Write-Host ""
 Write-Host "2. Verifique o runner no GitHub:" -ForegroundColor White
-Write-Host "   - Va em: https://github.com/$GitHubRepo/settings/actions/runners" -ForegroundColor Gray
+Write-Host "   - Va em: https://github.com/organizations/$GitHubOrg/settings/actions/runners" -ForegroundColor Gray
 Write-Host "   - Voce deve ver '$RunnerName' com status 'Idle'" -ForegroundColor Gray
 Write-Host ""
 Write-Host "3. Teste o sistema:" -ForegroundColor White
+Write-Host "   - Em qualquer repo da org $GitHubOrg" -ForegroundColor Gray
 Write-Host "   - Crie uma branch: git checkout -b staging/test" -ForegroundColor Gray
 Write-Host "   - Faca push: git push origin staging/test" -ForegroundColor Gray
-Write-Host "   - Acompanhe em: https://github.com/$GitHubRepo/actions" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Comandos uteis:" -ForegroundColor Yellow
 Write-Host "  Ver status do runner:" -ForegroundColor White

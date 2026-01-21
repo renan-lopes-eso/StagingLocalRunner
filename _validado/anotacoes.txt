@@ -22,7 +22,7 @@
     - Value: Server=seu-mysql.com;Port=3306;Database=staging;Uid=user;Pwd=senha;
  
 # 4 Criar GitHub Personal Access Token
-  1. Acesse: https://github.com/settings/tokens
+  1. Acesse: https://github.com/settings/personal-access-tokens
   2. Clique em "Generate new token"
   3. Configure:
     - Token name: staging-runner-token
@@ -33,8 +33,10 @@
     - Administration: Read and write (necessário para registrar runners)
     - Contents: Read-only
     - Metadata: Read-only (já vem marcado)
-  5. Clique em "Generate token" e copie
-  6. Atualize o C:\configs\secrets.json e teste:
+  5. Em Permissions → Organizations permissions:
+    - Self-hosted runners: Read and write (necessário para registrar runners)
+  6. Clique em "Generate token" e copie
+  7. Atualize o C:\configs\secrets.json e teste:
     $token = "github_pat_..."
     $headers = @{ "Authorization" = "Bearer $token"; "Accept" = "application/vnd.github.v3+json" }
     Invoke-RestMethod -Uri "https://api.github.com/user" -Headers $headers
@@ -68,6 +70,20 @@
     - Container deve subir em: http://localhost:5001
 
 troubleshoot:
+para saber se o git runner esta rodando:
+Get-Process -Name "Runner.Listener" -ErrorAction SilentlyContinue
+
 para mostrar erros internos da aplicacao:
 docker logs staging-staging-test
 
+  Ver status do runner:
+    Get-Process -Name Runner.Listener
+
+  Ver logs do runner:
+    Get-Content C:\configs\runner\_diag\*.log -Tail 50
+
+  Iniciar runner manualmente:
+    cd C:\configs\runner; .\run.cmd
+
+  Parar runner:
+    Stop-Process -Name Runner.Listener -Force

@@ -147,3 +147,44 @@ else {
 }
 
 Write-Host ""
+
+# Configurar Docker para Windows Containers
+Write-Host "Configurando Docker para Windows Containers..." -ForegroundColor Yellow
+try {
+    # Verificar modo atual
+    $dockerOs = docker version --format '{{.Server.Os}}' 2>$null
+
+    if ($dockerOs -eq "windows") {
+        Write-Host "  ✓ Docker ja esta em modo Windows Containers" -ForegroundColor Green
+    }
+    elseif ($dockerOs -eq "linux") {
+        Write-Host "  Alternando para Windows Containers..." -ForegroundColor White
+
+        # Comando para alternar para Windows containers
+        & "C:\Program Files\Docker\Docker\DockerCli.exe" -SwitchDaemon
+
+        # Aguardar Docker reiniciar
+        Write-Host "  Aguardando Docker reiniciar..." -ForegroundColor White
+        Start-Sleep -Seconds 10
+
+        # Verificar novamente
+        $dockerOs = docker version --format '{{.Server.Os}}' 2>$null
+        if ($dockerOs -eq "windows") {
+            Write-Host "  ✓ Docker configurado para Windows Containers" -ForegroundColor Green
+        }
+        else {
+            Write-Host "  ! Nao foi possivel alternar automaticamente" -ForegroundColor Yellow
+            Write-Host "  ! Clique direito no icone do Docker > Switch to Windows containers" -ForegroundColor Yellow
+        }
+    }
+    else {
+        Write-Host "  ! Docker nao esta rodando ou nao respondeu" -ForegroundColor Yellow
+        Write-Host "  ! Inicie o Docker Desktop e configure para Windows containers" -ForegroundColor Yellow
+    }
+}
+catch {
+    Write-Host "  ! Erro ao configurar Docker: $_" -ForegroundColor Yellow
+    Write-Host "  ! Configure manualmente: Docker Desktop > Switch to Windows containers" -ForegroundColor Yellow
+}
+
+Write-Host ""
