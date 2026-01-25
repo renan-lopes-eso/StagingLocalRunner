@@ -43,5 +43,8 @@ tmp/
 temp/
 *.tmp
 
+# Copias de outros repos
+copia*/
+
 # EF Core Migrations (optional - uncomment if you don't want to commit migrations)
 # **/Migrations/

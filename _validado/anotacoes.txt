@@ -15,9 +15,9 @@
     - Clique em Apply ou Save
 
 # 3 Configurar os segredos no github:
-  1. Vá em: https://github.com/renan-lopes-eso/ESO.TestRunner/settings/secrets/actions
-  2. Clique em "New repository secret"
-  3. Preencha:
+  1. Vá em: https://github.com/renan-lopes-eso/ESO.TestRunner/settings/environments
+  2. Crie o ambiente staging caso ainda nao ouver e clique em staging
+  3. Em enviroment secres, preencha os segredos, ex:
     - Name: ESO_CORE_CONNECTION
     - Value: Server=seu-mysql.com;Port=3306;Database=staging;Uid=user;Pwd=senha;
  
@@ -73,8 +73,8 @@ troubleshoot:
 para saber se o git runner esta rodando:
 Get-Process -Name "Runner.Listener" -ErrorAction SilentlyContinue
 
-para mostrar erros internos da aplicacao:
-docker logs staging-staging-test
+  para mostrar erros internos da aplicacao:
+  docker logs --tail 200 staging-staging-test
 
   Ver status do runner:
     Get-Process -Name Runner.Listener
@@ -87,3 +87,17 @@ docker logs staging-staging-test
 
   Parar runner:
     Stop-Process -Name Runner.Listener -Force
+
+  Ver variaveis de ambiente do container:
+    docker exec nome-do-container env
+
+
+load-test.ps1.
+  # Criar 5 cópias do container eso-core-staging-test
+  .\load-test.ps1 -ContainerName "eso-core-staging-test" -Copies 5
+
+  # Criar 10 cópias começando na porta 7000
+  .\load-test.ps1 -ContainerName "eso-core-staging-test" -Copies 10 -StartPort 7000
+
+  # Remover todos os containers de load test
+  .\load-test.ps1 -ContainerName "eso-core-staging-test" -Copies 0 -Remove
