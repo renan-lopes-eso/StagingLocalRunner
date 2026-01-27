@@ -21,7 +21,7 @@
     - Name: ESO_CORE_CONNECTION
     - Value: Server=seu-mysql.com;Port=3306;Database=staging;Uid=user;Pwd=senha;
  
-# 4 Criar GitHub Personal Access Token
+# 4 Criar GitHub Personal Access Token para o Runner
   1. Acesse: https://github.com/settings/personal-access-tokens
   2. Clique em "Generate new token"
   3. Configure:
@@ -40,6 +40,16 @@
     $token = "github_pat_..."
     $headers = @{ "Authorization" = "Bearer $token"; "Accept" = "application/vnd.github.v3+json" }
     Invoke-RestMethod -Uri "https://api.github.com/user" -Headers $headers
+
+Criar o token para o Core disparar o workflow do teampanel:
+  1. GitHub → Clique no seu avatar → Settings
+  2. Developer settings (no final do menu lateral esquerdo)
+  3. Personal access tokens → Fine-grained tokens → Generate new token
+  4. Only select repositories → Selecionar ESO.Teampanel
+  5. Permissao:
+       Actions   │ Read and write
+       Contents  │ Read-only
+  6. Generate token
 
 # 5 Secrets.json
   1. Crie o arquivo: c:/configs/secrets.json
@@ -101,3 +111,12 @@ load-test.ps1.
 
   # Remover todos os containers de load test
   .\load-test.ps1 -ContainerName "eso-core-staging-test" -Copies 0 -Remove
+
+git
+  git checkout staging/test
+  git reset --hard origin/sprint
+  git push --force
+
+  git commit --allow-empty -m "trigger deploy" && git push
+
+  git branch -D staging/test && git push origin --delete staging/test

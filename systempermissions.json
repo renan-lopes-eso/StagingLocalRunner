@@ -1,0 +1,305 @@
+[
+  {
+    "Id": 1,
+    "Name": "Master",
+    "Permissions": [
+      "All",
+
+      "Licenses",
+      "Licenses_Statistics",
+      "Licenses_SeeClientRealId",
+
+      "Licenses_Payments",
+      "Licenses_SellHistory",
+      "Licenses_DuePaymentsFilter",
+
+      "Licenses_UpdatePlan",
+      "Licenses_UpdateLimits",
+
+      "Licenses_UpdateMessage",
+      "Licenses_UpdateTags",
+      "Licenses_ImportDocument",
+      "Licenses_UpdateUser",
+      "Licenses_LoginAsUser",
+
+      "Users",
+      "Users_Update",
+
+      "RegisterLinks",
+      "RegisterLinks_Update",
+
+      "Cbos",
+      "Cbos_Update",
+
+      "Debtors",
+      "Debtors_Update",
+
+      "Plans",
+      "Plans_Update",
+
+      "eSocial_CheckReceipts",
+      "eSocial_ProcessingInfo",
+
+      "Tags",
+      "Tags_Update",
+      "Tags_SeeSensitive",
+
+      "InactiveUsers",
+      "SupportRequests"
+    ]
+  },
+  {
+    "Id": 11,
+    "Name": "Vendas (Coodernador)",
+    "Permissions": [
+      "Licenses",
+      "Licenses_Statistics",
+
+      "Licenses_UpdateTags",
+      "Licenses_UpdateUser",
+      "Licenses_LoginAsUser",
+
+      "Licenses_DuePaymentsFilter",
+      "Licenses_Payments",
+      "Licenses_SellHistory",
+
+      "Licenses_UpdatePlan",
+      "Licenses_UpdateLimits",
+
+      "RegisterLinks",
+      "RegisterLinks_Update",
+
+      "InactiveUsers",
+      "SupportRequests"
+    ]
+  },
+  {
+    "Id": 12,
+    "Name": "Vendas (Geral)",
+    "Permissions": [
+      "Licenses",
+      "Licenses_Statistics",
+
+      "Licenses_DuePaymentsFilter",
+      "Licenses_Payments",
+      "Licenses_SellHistory",
+
+      "RegisterLinks",
+      "RegisterLinks_Update",
+
+      "InactiveUsers",
+      "SupportRequests"
+    ]
+  },
+  {
+    "Id": 31,
+    "Name": "Suporte (Coordenador)",
+    "Permissions": [
+      "Licenses",
+      "Licenses_Statistics",
+      "Licenses_SeeClientRealId",
+
+	  "Licenses_UpdateDetails",
+      "Licenses_UpdateTags",
+      "Licenses_ImportDocument",
+      "Licenses_UpdateUser",
+      "Licenses_LoginAsUser",
+
+      "Users",
+      "Users_Update",
+
+      "Cbos",
+      "Cbos_Update",
+
+	  "ESocialReceipt",
+      "eSocial_CheckReceipts",
+      "eSocial_ProcessingInfo",
+
+      "InactiveUsers",
+      "SupportRequests"
+    ]
+  },
+  {
+    "Id": 32,
+    "Name": "Suporte (Geral)",
+    "Permissions": [
+      "Licenses",
+      "Licenses_Statistics",
+
+      "Licenses_UpdateTags",
+      "Licenses_ImportDocument",
+      "Licenses_UpdateUser",
+      "Licenses_LoginAsUser",
+
+	  "ESocialReceipt",
+      "eSocial_CheckReceipts",
+
+      "InactiveUsers",
+      "SupportRequests"
+    ]
+  },
+  {
+    "Id": 33,
+    "Name": "Suporte (Geral+Up)",
+    "Permissions": [
+      "Licenses",
+      "Licenses_Statistics",
+
+	  "Licenses_UpdateDetails",
+      "Licenses_UpdateTags",
+      "Licenses_ImportDocument",
+      "Licenses_UpdateUser",
+      "Licenses_LoginAsUser",
+
+      "Licenses_UpdatePlan",
+      "Licenses_UpdateLimits",
+
+      "Licenses_DuePaymentsFilter",
+      "Licenses_Payments",
+      "Licenses_SellHistory",
+
+	  "ESocialReceipt",
+      "eSocial_CheckReceipts",
+
+      "InactiveUsers",
+      "SupportRequests"
+    ]
+  },
+  {
+    "Id": 41,
+    "Name": "Dev (Coordenador)",
+    "Permissions": [
+      "Licenses",
+      "Licenses_Statistics",
+      "Licenses_SeeClientRealId",
+
+      "Licenses_DuePaymentsFilter",
+      "Licenses_Payments",
+      "Licenses_SellHistory",
+
+      "Licenses_LoginAsUser",
+
+      "eSocial_CheckReceipts",
+      "eSocial_ProcessingInfo",
+
+      "Cbos",
+
+      "Plans",
+
+      "Tags",
+
+      "InactiveUsers",
+      "SupportRequests"
+    ]
+  },
+{
+    "Id": 42,
+    "Name": "Dev (Geral)",
+    "Permissions": [
+    ]
+  },  
+  {
+    "Id": 51,
+    "Name": "Financeiro (Coordenador)",
+    "Permissions": [
+      "Licenses",
+      "Licenses_Statistics",
+      "Licenses_SeeClientRealId",
+
+	  "Licenses_UpdateDetails",
+      "Licenses_UpdateMessage",
+      "Licenses_UpdateTags",
+      "Licenses_UpdateUser",
+      "Licenses_LoginAsUser",      
+
+      "Licenses_DuePaymentsFilter",
+      "Licenses_Payments",
+      "Licenses_SellHistory",
+
+      "Licenses_UpdatePlan",
+      "Licenses_UpdateLimits",
+
+      "Debtors",
+      "Debtors_Update",
+
+      "Plans",
+
+      "Tags",
+      "Tags_Update",
+      "Tags_SeeSensitive",
+
+      "InactiveUsers",
+      "SupportRequests",
+	  
+	  "RegisterLinks",
+	  "RegisterLinks_Update"
+    ]
+  },
+  {
+    "Id": 52,
+    "Name": "Financeiro (Geral)",
+    "Permissions": [
+      "Licenses",
+      "Licenses_Statistics",
+      "Licenses_SeeClientRealId",
+
+	  "Licenses_UpdateDetails",
+      "Licenses_UpdateMessage",
+      "Licenses_UpdateTags",
+      "Licenses_UpdateUser",
+      "Licenses_LoginAsUser",
+
+      "Licenses_DuePaymentsFilter",
+      "Licenses_Payments",
+      "Licenses_SellHistory",
+
+      "Licenses_UpdatePlan",
+      "Licenses_UpdateLimits",
+
+      "Debtors",
+      "Debtors_Update",
+
+      "Plans",
+
+      "Tags",
+      "Tags_Update",
+      "Tags_SeeSensitive",
+
+      "InactiveUsers",
+      "SupportRequests"
+    ]
+  },
+  {
+    "Id": 53,
+    "Name": "Financeiro (Geral/Sem Login)",
+    "Permissions": [
+      "Licenses",
+      "Licenses_Statistics",
+      "Licenses_SeeClientRealId",
+
+	  "Licenses_UpdateDetails",
+      "Licenses_UpdateMessage",
+      "Licenses_UpdateTags",
+      "Licenses_UpdateUser",
+
+      "Licenses_DuePaymentsFilter",
+      "Licenses_Payments",
+      "Licenses_SellHistory",
+
+      "Licenses_UpdatePlan",
+      "Licenses_UpdateLimits",
+
+      "Debtors",
+      "Debtors_Update",
+
+      "Plans",
+
+      "Tags",
+      "Tags_Update",
+      "Tags_SeeSensitive",
+
+      "InactiveUsers",
+      "SupportRequests"
+    ]
+  }  
+]

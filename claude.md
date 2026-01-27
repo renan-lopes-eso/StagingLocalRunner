@@ -117,6 +117,18 @@ Os workflows adicionam labels aos containers:
 - **Porta**: 5000-9999 (hash do repo+branch)
 - **Network**: `staging-network`
 
+### Deploy Automatico Core → Teampanel
+
+Quando o Core e deployado, ele automaticamente dispara o deploy do Teampanel:
+
+1. Push no Core em `staging/feature-x`
+2. Core verifica se existe branch `staging/feature-x` no Teampanel
+3. **Se existir** → dispara workflow na branch `staging/feature-x`
+4. **Se nao existir** → dispara workflow na branch `sprint`
+5. Container Teampanel e nomeado como `eso-teampanel-staging-feature-x` (compativel com Core)
+
+**Requisito**: Secret `GH_PAT` no repo do Core com Personal Access Token que tenha permissao `Actions: write` no Teampanel.
+
 ### ForwardedHeaders (obrigatorio em Staging)
 ```csharp
 if (app.Environment.IsStaging())
@@ -189,6 +201,49 @@ caddy reload --config C:\configs\Caddyfile     # Recarregar
 
 ---
 
+## LoginAsUser (Teampanel → Core)
+
+Permite administradores do Teampanel logarem como qualquer usuario no Core sem precisar da senha.
+
+### Fluxo
+
+```
+Teampanel                           Core
+    |                                 |
+    | POST /account/loginasuserexternal
+    | + Bearer Token                  |
+    |-------------------------------->|
+    |                                 | Autentica usuario
+    |      Set-Cookie (sessao)        |
+    |<--------------------------------|
+    |                                 |
+    | Redirect browser para:          |
+    | /account/manageloginfromteampanel
+    |-------------------------------->|
+    |                                 | Converte cookies tp_* em definitivos
+    |      Redirect para lobby        |
+    |<--------------------------------|
+```
+
+### Variaveis de Ambiente do Teampanel
+
+| Variavel | Descricao | Exemplo Staging |
+|----------|-----------|-----------------|
+| `ESO_TEAMPANEL_ESOCORE_CORSURL` | URL interna para comunicacao container-container | `http://eso-core-staging-test:80` |
+| `ESO_TEAMPANEL_ESOCORE_CORSREDIRECTURL` | URL publica para redirect do browser (apenas staging) | `https://eso-core-staging-test.10.0.1.34.nip.io` |
+| `ESO_CORE_TEAMPANEL_CORSTOKEN` | Token Bearer compartilhado entre Teampanel e Core | (secret) |
+
+**Nota**: `CORSREDIRECTURL` so precisa ser preenchida em staging. Em producao e localhost, deixar vazia e o sistema usa o comportamento padrao.
+
+### Dominio dos Cookies
+
+O dominio e determinado automaticamente:
+- Se `CORSREDIRECTURL` preenchida → extrai dominio da URL (ex: `.10.0.1.34.nip.io`)
+- Se nao preenchida e `baseUrl` contem "localhost" → `.localhost`
+- Caso contrario → `.sistemaeso.com.br`
+
+---
+
 ## Problemas Conhecidos
 
 | Problema | Solucao |
@@ -198,10 +253,17 @@ caddy reload --config C:\configs\Caddyfile     # Recarregar
 | Redirect sem nip.io | `ForwardedHeadersTransformer` no Dashboard |
 | Case-sensitivity Linux | Renomear arquivos para minusculas com `git mv` |
 | Imagens `<none>` | `docker image prune -f` |
+| LoginAsUser redirect errado | Configurar `ESO_TEAMPANEL_ESOCORE_CORSREDIRECTURL` em staging |
+| Teampanel nao sobe junto com Core | Deploy automatico via `workflow_dispatch` + `GH_PAT` |
 
 ---
 
 ## Pendencias
 
 - [ ] Corrigir case-sensitivity: `jquery.matchHeight-min.js` no ESO.Core
-- [ ] Copiar workflows atualizados para os repos reais
+- [ ] Copiar arquivos atualizados para os repos reais:
+  - [ ] **ESO.Teampanel**: `Codes/Helpers/Secret.cs`
+  - [ ] **ESO.Teampanel**: `Controllers/Api/License/LoginAsUserApiController.cs`
+  - [ ] **ESO.Teampanel**: `.github/workflows/staging-deploy.yml`
+  - [ ] **ESO.Core**: `.github/workflows/staging-deploy.yml`
+- [ ] Criar secret `GH_PAT` no repositorio ESO.Core com token que tenha acesso ao ESO.Teampanel
