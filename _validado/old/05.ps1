@@ -62,20 +62,44 @@ if (-not (Test-Path $configDir)) {
 }
 
 # ============================================
-# 3. Verificar Caddyfile
+# 3. Criar Caddyfile
 # ============================================
 Write-Host ""
-Write-Host "[3/5] Verificando Caddyfile..." -ForegroundColor Yellow
+Write-Host "[3/5] Criando Caddyfile..." -ForegroundColor Yellow
+
+$caddyfile = @"
+# Caddyfile - Reverse Proxy para Staging
+# Gerado automaticamente pelo script 05-setup-caddy.ps1
+
+# Configuracao global
+{
+    # Usar certificados internos (auto-assinados)
+    # Para certificados Let's Encrypt, remover esta linha
+    local_certs
+}
+
+# HTTPS para todos os subdominios do staging
+*.$IP.nip.io {
+    reverse_proxy localhost:5000 {
+        header_up X-Forwarded-Host {host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+    tls internal
+}
+
+# Dashboard direto pelo IP
+$IP.nip.io {
+    reverse_proxy localhost:5000 {
+        header_up X-Forwarded-Host {host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+    tls internal
+}
+"@
 
 $caddyfilePath = Join-Path $configDir "Caddyfile"
-
-if (Test-Path $caddyfilePath) {
-    Write-Host "  Caddyfile encontrado em $caddyfilePath" -ForegroundColor Green
-} else {
-    Write-Host "  ERRO: Caddyfile nao encontrado em $caddyfilePath" -ForegroundColor Red
-    Write-Host "  Copie o arquivo Caddyfile para $configDir antes de executar este script" -ForegroundColor Yellow
-    exit 1
-}
+$caddyfile | Out-File -FilePath $caddyfilePath -Encoding UTF8 -Force
+Write-Host "  Caddyfile criado em $caddyfilePath" -ForegroundColor Green
 
 # ============================================
 # 4. Configurar Firewall

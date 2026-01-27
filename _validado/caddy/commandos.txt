@@ -1,0 +1,22 @@
+permitir url do servidor no kaspersky:
+If a specific trusted website is causing the warning, add it to the exclusion list: 
+Open the main Kaspersky interface.
+Click the gear icon (Settings) in the lower-left corner.
+Go to Security Settings and select Network Settings.
+Scroll down to the Trusted addresses section and click Add.
+Enter the URL of the website causing the warning and set the status to Active.
+Click Add and then Save the changes
+
+
+instalar os dois certificados para root:
+certutil -addstore -f "ROOT" "root.crt"
+certutil -addstore -f "ROOT" "intermediate.crt"
+
+# Remover root
+certutil -delstore ROOT "Caddy Local Authority - 2026 ECC Root"
+certutil -delstore ROOT "Caddy Local Authority - ECC Intermediate"
+
+certutil -urlcache * delete
+
+certutil -store ROOT "Caddy Local Authority - 2026 ECC Root"
+certutil -store ROOT "Caddy Local Authority - ECC Intermediate"

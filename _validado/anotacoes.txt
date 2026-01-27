@@ -78,6 +78,10 @@ Criar o token para o Core disparar o workflow do teampanel:
     - git push origin staging/test
     - Acompanhar em: https://github.com/renan-lopes-eso/ESO.TestRunner/actions
     - Container deve subir em: http://localhost:5001
+ 
+rodar o script 06
+  ele vai copiar o cert do cad para a pasta, entao tem que pegar o cert e instalar nas maquinas de quem vai acessar o dash com
+   certutil -addstore -f "ROOT" caddy-root.crt
 
 troubleshoot:
 para saber se o git runner esta rodando:
@@ -112,6 +116,10 @@ load-test.ps1.
   # Remover todos os containers de load test
   .\load-test.ps1 -ContainerName "eso-core-staging-test" -Copies 0 -Remove
 
+docker
+  docker exec <nome-container> mkdir -p /app/Assets
+  docker cp "C:\configs\systempermissions.json" <nome-container>:/app/Assets/systempermissions.json
+
 git
   git checkout staging/test
   git reset --hard origin/sprint
@@ -120,3 +128,35 @@ git
   git commit --allow-empty -m "trigger deploy" && git push
 
   git branch -D staging/test && git push origin --delete staging/test
+
+
+achar onde esta o certificado root do caddy
+Get-ChildItem -Path "C:\" -Recurse -Filter "root.crt" -ErrorAction SilentlyContinue 2>$null | Select-Object FullName
+
+
+ Excluir o domínio da verificação do Dashboard no Kaspersky
+Method 1: Add Site to Exclusions (Recommended) 
+If a specific trusted website is causing the warning, add it to the exclusion list: 
+Open the main Kaspersky interface.
+Click the gear icon (Settings) in the lower-left corner.
+Go to Security Settings and select Network Settings.
+Scroll down to the Trusted addresses section and click Add.
+Enter the URL of the website causing the warning and set the status to Active.
+Click Add and then Save the changes
+
+para o chrome:
+ir na pasta do staging e copiar o root.cert e o intermediate.cert para a maquina que vai acessar o dash 
+C:\Windows\System32\config\systemprofile\AppData\Roaming\Caddy\pki\authorities\local
+
+instalar os dois certificados para root:
+certutil -addstore -f "ROOT" "root.crt"
+certutil -addstore -f "ROOT" "intermediate.crt"
+
+  # Remover root
+  certutil -delstore ROOT "Caddy Local Authority - 2026 ECC Root"
+  certutil -delstore ROOT "Caddy Local Authority - ECC Intermediate"
+
+  certutil -urlcache * delete
+
+  certutil -store ROOT "Caddy Local Authority - 2026 ECC Root"
+  certutil -store ROOT "Caddy Local Authority - ECC Intermediate"

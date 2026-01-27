@@ -1,0 +1,31 @@
+# Caddyfile - Reverse Proxy para Staging
+
+# Configuracao global
+{
+    # Certificados internos com duracao de 9 anos
+    pki {
+        ca local {
+            intermediate_lifetime 3285d
+        }
+    }
+}
+
+# HTTPS para todos os subdominios do staging
+*.10.0.1.34.nip.io {
+    reverse_proxy localhost:5000
+    tls {
+        issuer internal {
+            lifetime 3285d
+        }
+    }
+}
+
+# Dashboard direto pelo IP
+10.0.1.34.nip.io {
+    reverse_proxy localhost:5000
+    tls {
+        issuer internal {
+            lifetime 3285d
+        }
+    }
+}
