@@ -5,6 +5,8 @@
 - A maquina local (de onde os prompts sao executados) **nao e** a maquina de staging
 - Conexao a maquina de staging e feita via **RDP (Remote Desktop Protocol)**
 - O Claude Code esta rodando na maquina local, mas operando sobre arquivos da maquina de staging remota
+- **IMPORTANTE**: Trabalhar apenas dentro da pasta `StagingLocalRunner` - nao acessar pastas externas
+- **Projetos de exemplo**: Ficam em pastas que comecam com `copia` (ex: `copiaDash`, `copiaCore`, etc.)
 
 ---
 
@@ -17,9 +19,9 @@
 |-------------|-----------|-------|
 | **StagingLocalRunner** | Infraestrutura - scripts de setup | - |
 | **StagingDashboard** | Dashboard de gerenciamento | 5000 |
-| **ESO.Core** | Aplicacao principal | 5000-9999 |
-| **ESO.Teampanel** | Painel administrativo | 5000-9999 |
-| **ESO.Portal** | Portal web | 5000-9999 |
+| **ESO.Core** | Aplicacao principal | 5001-30000 |
+| **ESO.Teampanel** | Painel administrativo | 5001-30000 |
+| **ESO.Portal** | Portal web | 5001-30000 |
 
 ---
 
@@ -58,11 +60,12 @@
 
 ### Funcionalidades
 - Containers organizados por secoes: **Teampanel**, **Core**, **Portal**, **MySQL**, **Outros**
-- Botoes: **Abrir**, **Logs**, **Parar/Iniciar**, **Remover**
-- Criacao de containers **MySQL** via interface
-- Botao **Copiar** connection string do MySQL
+- Botoes: **Abrir**, **Logs**, **Parar/Iniciar**, **Remover**, **Notion**
+- Criacao de containers **MySQL** e **Valkey (Redis)** via interface
+- Botao **Copiar** connection string do MySQL/Valkey
 - Exibicao de **commit**, **autor**, **mensagem** do deploy
 - Auto-refresh a cada 30 segundos
+- **Link Notion**: Abre o card correspondente no Notion baseado na branch
 
 ### APIs
 | Endpoint | Metodo | Descricao |
@@ -73,13 +76,22 @@
 | `/api/containers/{name}/start` | POST | Inicia container |
 | `/api/containers/{name}/logs?tail=200` | GET | Retorna logs |
 | `/api/containers/create-mysql` | POST | Cria MySQL |
+| `/api/containers/create-valkey` | POST | Cria Valkey (Redis) |
+| `/api/notion/card?branch={branch}` | GET | Busca card no Notion |
 
 ### Criar MySQL
 ```json
 POST /api/containers/create-mysql
-{ "name": "staging", "version": "8.4.7", "rootPassword": "senha", "port": 3306 }
+{ "name": "staging", "version": "8.4.7", "rootPassword": "senha", "port": 36000 }
 ```
-Nome recebe prefixo `mysql-` automaticamente.
+Nome recebe prefixo `mysql-` automaticamente. Porta sugerida: **36000+**
+
+### Criar Valkey (Redis)
+```json
+POST /api/containers/create-valkey
+{ "name": "staging", "password": "opcional", "port": 37000 }
+```
+Nome recebe prefixo `valkey-` automaticamente. Porta sugerida: **37000+**
 
 ---
 
@@ -114,7 +126,7 @@ Os workflows adicionam labels aos containers:
 - **Trigger**: Push para `staging/**`
 - **Environment**: `staging`
 - **Container**: `{prefixo}-{branch-safe}`
-- **Porta**: 5000-9999 (hash do repo+branch)
+- **Porta**: 5001-30000 (hash SHA256 do repo+branch)
 - **Network**: `staging-network`
 
 ### Deploy Automatico Core → Teampanel
@@ -146,9 +158,10 @@ if (app.Environment.IsStaging())
 
 ### Via Dashboard (recomendado)
 - Versao configuravel (padrao 8.4.7)
-- Porta configuravel
+- Porta sugerida: **36000** (configuravel)
 - `lower_case_table_names=1` automatico
 - Connection string copiavel pelo Dashboard
+- Vinculacao automatica a containers Core/Teampanel/Portal
 
 ### Connection Strings
 ```
@@ -156,7 +169,30 @@ if (app.Environment.IsStaging())
 Server=mysql-staging;Port=3306;Database=;User=root;Password=;
 
 # Para acesso externo
-Server=10.0.1.34;Port=3306;Database=;User=root;Password=;
+Server=10.0.1.34;Port=36000;Database=;User=root;Password=;
+```
+
+---
+
+## Valkey (Redis)
+
+### Via Dashboard (recomendado)
+- Imagem: `valkey/valkey:latest` (compativel com Redis)
+- Porta sugerida: **37000** (configuravel)
+- Senha opcional
+- Connection string copiavel pelo Dashboard
+- Vinculacao automatica a containers Core/Teampanel/Portal
+
+### Connection Strings
+```
+# Para containers (via Docker network, sem senha)
+valkey-staging:6379
+
+# Para containers (via Docker network, com senha)
+valkey-staging:6379,password=senha
+
+# Para acesso externo
+10.0.1.34:37000
 ```
 
 ---
@@ -244,6 +280,39 @@ O dominio e determinado automaticamente:
 
 ---
 
+## Integracao Notion
+
+O Dashboard permite abrir diretamente o card do Notion correspondente a branch do container.
+
+### Configuracao
+1. Criar integracao no Notion: https://www.notion.so/my-integrations
+2. Compartilhar a database de tarefas com a integracao
+3. Adicionar secrets no repositorio StagingDashboard:
+   - `NOTION_TOKEN`: Token da integracao
+   - `NOTION_CARD_DATABASE_ID`: ID da database de tarefas
+
+### Como funciona
+- A database deve ter uma propriedade de formula chamada `Branch` que monta o nome da branch
+- O endpoint `/api/notion/card?branch={branch}` faz query na API do Notion
+- Se encontrar um card, retorna a URL para abrir em nova aba
+
+### Exemplo de Query
+```json
+POST https://api.notion.com/v1/databases/{database_id}/query
+{
+  "filter": {
+    "property": "Branch",
+    "formula": {
+      "string": {
+        "equals": "772-rel-maintenance"
+      }
+    }
+  }
+}
+```
+
+---
+
 ## Problemas Conhecidos
 
 | Problema | Solucao |
@@ -267,3 +336,6 @@ O dominio e determinado automaticamente:
   - [ ] **ESO.Teampanel**: `.github/workflows/staging-deploy.yml`
   - [ ] **ESO.Core**: `.github/workflows/staging-deploy.yml`
 - [ ] Criar secret `GH_PAT` no repositorio ESO.Core com token que tenha acesso ao ESO.Teampanel
+- [ ] **Notion**: Criar secrets no repositorio StagingDashboard:
+  - `NOTION_TOKEN`: Token de integracao do Notion
+  - `NOTION_CARD_DATABASE_ID`: ID da database de tarefas

@@ -116,19 +116,6 @@ load-test.ps1.
   # Remover todos os containers de load test
   .\load-test.ps1 -ContainerName "eso-core-staging-test" -Copies 0 -Remove
 
-docker
-  docker exec <nome-container> mkdir -p /app/Assets
-  docker cp "C:\configs\systempermissions.json" <nome-container>:/app/Assets/systempermissions.json
-
-git
-  git checkout staging/test
-  git reset --hard origin/sprint
-  git push --force
-
-  git commit --allow-empty -m "trigger deploy" && git push
-
-  git branch -D staging/test && git push origin --delete staging/test
-
 
 achar onde esta o certificado root do caddy
 Get-ChildItem -Path "C:\" -Recurse -Filter "root.crt" -ErrorAction SilentlyContinue 2>$null | Select-Object FullName
@@ -160,3 +147,62 @@ certutil -addstore -f "ROOT" "intermediate.crt"
 
   certutil -store ROOT "Caddy Local Authority - 2026 ECC Root"
   certutil -store ROOT "Caddy Local Authority - ECC Intermediate"
+
+# PENDENTE: Link do Notion no Dashboard
+  Objetivo: Adicionar botão no dashboard que abre o card do Notion correspondente à branch
+
+  Implementação (Opção 1 - API do Notion):
+  1. Criar integração no Notion: https://www.notion.so/my-integrations
+  2. Compartilhar o database de cards com a integração
+  3. Pegar o ID do database (está na URL do database)
+  4. Criar endpoint no dashboard: GET /api/notion/card?branch={branch-name}
+     - Usa a API do Notion para buscar card onde propriedade "Branch" = branch-name
+     - Retorna a URL do card encontrado
+  5. Adicionar botão "Notion" no card do container que chama esse endpoint
+
+  Documentação API Notion: https://developers.notion.com/reference/post-database-query
+
+  Secrets necessários:
+  - NOTION_TOKEN: token da integração
+  - NOTION_DATABASE_ID: ID do database de cards
+
+docker
+  docker exec <nome-container> mkdir -p /app/Assets
+  docker cp "C:\configs\systempermissions.json" <nome-container>:/app/Assets/systempermissions.json
+  docker exec nome-do-container env
+
+git
+  git checkout staging/test
+  git reset --hard origin/sprint
+  git push --force
+
+  git commit --allow-empty -m "trigger deploy" && git push
+
+  git branch -D staging/test && git push origin --delete staging/test
+
+
+Conectar ao Valkey via Docker:
+  docker exec -it nome valkey-cli
+
+ Dentro do CLI:
+  # Listar TODAS as chaves
+  KEYS *
+  # Listar apenas chaves de permissões
+  KEYS eso:permissions:*
+  # Listar apenas chaves de config de licença
+  KEYS eso:license:config:*
+  # Listar apenas chaves de limites
+  KEYS eso:limits:*
+  # Ver o valor de uma chave específica
+  GET eso:license:config:123
+  # Ver o TTL restante de uma chave (em segundos)
+  TTL eso:license:config:123
+  # Contar total de chaves
+  DBSIZE
+  # Ver info geral do servidor (memória, conexões, etc.)
+  INFO
+ 
+Ou pelo terminal
+  docker exec -it nome valkey-cli KEYS "*"
+  docker exec -it nome valkey-cli DBSIZE
+  docker exec -it nome valkey-cli GET eso:staging:eso:license:config:1
